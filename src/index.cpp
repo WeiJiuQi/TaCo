@@ -43,12 +43,6 @@ void gen_indexes(vector<arma::mat> data_list, vector<unordered_map<pair<int, int
         mlpack::kmeans::KMeans<> kmeans_first_half(kmeans_num_iters);
         kmeans_first_half.Cluster(data_list[subspace_index * 2], kmeans_num_centroid, assignments_first_half, centroids_first_half);
 
-        // offline index
-        #pragma omp parallel for
-        for (int i = 0; i < dataset_size; i++) {
-            assignments_list[subspace_index * 2 * dataset_size + i] = assignments_first_half(i);
-        }
-        
         for (int i = 0; i < kmeans_num_centroid; i++) {
             for (int j = 0; j < kmeans_dim; j++) {
                 centroids_list[subspace_index * 2 * kmeans_num_centroid * kmeans_dim + i * kmeans_dim + j] = centroids_first_half(j, i);
@@ -62,12 +56,13 @@ void gen_indexes(vector<arma::mat> data_list, vector<unordered_map<pair<int, int
         mlpack::kmeans::KMeans<> kmeans_second_half(kmeans_num_iters);
         kmeans_second_half.Cluster(data_list[subspace_index * 2 + 1], kmeans_num_centroid, assignments_second_half, centroids_second_half);
 
-        // offline index
-        #pragma omp parallel for
-        for (int i = 0; i < dataset_size; i++) {
+        // offline index: copy both halves in one loop for better cache locality
+        #pragma omp parallel for schedule(static)
+        for (long int i = 0; i < dataset_size; i++) {
+            assignments_list[subspace_index * 2 * dataset_size + i] = assignments_first_half(i);
             assignments_list[(subspace_index * 2 + 1) * dataset_size + i] = assignments_second_half(i);
         }
-        
+
         for (int i = 0; i < kmeans_num_centroid; i++) {
             for (int j = 0; j < kmeans_dim; j++) {
                 centroids_list[(subspace_index * 2 + 1) * kmeans_num_centroid * kmeans_dim + i * kmeans_dim + j] = centroids_second_half(j, i);

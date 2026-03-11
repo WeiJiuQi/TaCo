@@ -1,6 +1,6 @@
 # TaCo: Data-adaptive and Query-aware Subspace Collision for High-dimensional Approximate Nearest Neighbor Search
 
-This is the source code of the method proposed in paper: **TaCo: Data-adaptive and Query-aware Subspace Collision for High-dimensional Approximate Nearest Neighbor Search (submitted to SIGMOD 2026)**.
+This is the source code of the method proposed in paper: **TaCo: Data-adaptive and Query-aware Subspace Collision for High-dimensional Approximate Nearest Neighbor Search (accepted by SIGMOD 2026)**.
 
 ## Dependency
 
@@ -25,12 +25,11 @@ make
 ### Command and Parameters
 
 ```
-./taco --dataset-path $PATH_TO_DATASET$ --query-path $PATH_TO_QUERY$ --projected-query-path $PATH_TO_PROJECTED_QUERY$ --groundtruth-path $PATH_TO_GROUNDTRUTH$ --dataset-size $n$ --query-size $QUERY_SIZE$ --k-size $k$ --data-dimensionality $DIMENSIONALITY$ --subspace-dimensionality $SUBSPACE_DIMENSIONALITY$ --subspace-num $SUBSPACE_NUMBER$ --candidate-ratio $beta$ --collision-ratio $alpha$ --kmeans-num-centroid $K$ --kmeans-num-iters $ITERATION$ --index-path $PATH_TO_INDEX$ --load-index
+./taco --dataset-path $PATH_TO_DATASET$ --query-path $PATH_TO_QUERY$ --groundtruth-path $PATH_TO_GROUNDTRUTH$ --dataset-size $n$ --query-size $QUERY_SIZE$ --k-size $k$ --data-dimensionality $DIMENSIONALITY$ --subspace-dimensionality $SUBSPACE_DIMENSIONALITY$ --subspace-num $SUBSPACE_NUMBER$ --candidate-ratio $beta$ --collision-ratio $alpha$ --kmeans-num-centroid $K$ --kmeans-num-iters $ITERATION$ --index-path $PATH_TO_INDEX$ --load-index
 ```
 
 + --dataset-path: the path to dataset file
 + --query-path: the path to query file
-+ --projected-query-path: the path to the projected query file
 + --groundtruth-path: the path to groundtruth file
 + --dataset-size: n, a positive integer, the cardinality of dataset
 + --query-size: a positive integer, the number of queries in the query file

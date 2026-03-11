@@ -167,7 +167,7 @@ int main (int argc, char **argv)
     bool pca_model_ready = false;
 
     if (load_index == 0) {
-        // 1) Prepare data for PCA: dataset only (no query concatenation)
+        // 1) Prepare data for PCA
         arma::mat dataset_armamat(data_dimensionality, dataset_size, arma::fill::zeros);
         for (long int i = 0; i < dataset_size; i++) {
             for (int j = 0; j < data_dimensionality; j++) {
@@ -176,7 +176,7 @@ int main (int argc, char **argv)
         }
         dataset_mean = arma::mean(dataset_armamat, 1);
 
-        // 2) Perform PCA on dataset only
+        // 2) Perform PCA
         arma::mat transformedData(data_dimensionality, dataset_size, arma::fill::zeros);
         eigVal.set_size(data_dimensionality);
         eigvec.set_size(data_dimensionality, data_dimensionality);
@@ -184,7 +184,7 @@ int main (int argc, char **argv)
         pca.Apply(dataset_armamat, transformedData, eigVal, eigvec);
         dataset_armamat.clear();
 
-        // Scale the eigenvalues to avoid numerical issues
+        // 3) Scale the eigenvalues to avoid numerical issues
         int power = 0;
         while (eigVal[data_dimensionality - 1] < 1) {
             eigVal[data_dimensionality - 1] *= 10;
@@ -194,7 +194,7 @@ int main (int argc, char **argv)
             eigVal[i] *= pow(10, power);
         }
 
-        // 3) projectedData: dataset columns only; build dimension-to-row mapping for query
+        // 4) Project dataset to subspaces with eigensystem allocation
         arma::mat projectedData(subspace_dimensionality * subspace_num, dataset_size, arma::fill::zeros);
         row_to_dim.resize(subspace_dimensionality * subspace_num);
         vector<double> eigval_product_subspace(subspace_num, 1.0);
@@ -222,7 +222,7 @@ int main (int argc, char **argv)
         pca_model_ready = true;
     }
 
-    // Query points: always apply PCA transform (model from current run or loaded from file)
+    // Load PCA model from file
     if (load_index == 1) {
         string pca_path = string(index_path) + ".pca";
         if (!load_pca_model(pca_path.c_str(), data_dimensionality, subspace_dimensionality, subspace_num, dataset_mean, eigvec, eigVal, row_to_dim)) {
@@ -270,6 +270,7 @@ int main (int argc, char **argv)
         queryknn_results[i] = new int[k_size];
     }
 
+    // Project query points to subspaces
     float ** projected_querypoints = new float * [query_size];
     if (pca_model_ready) {
         int proj_dim = subspace_dimensionality * subspace_num;

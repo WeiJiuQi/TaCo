@@ -1,4 +1,6 @@
 #include "preprocess.h"
+#include <cstdio>
+#include <vector>
 
 void load_data(float ** &dataset, char * dataset_path, long int dataset_size, int data_dimensionality) {
     cout << ">>> Loading dataset from: " << dataset_path << endl;
@@ -117,4 +119,47 @@ int eigval_subspace_select(vector<double>& eigval_product_subspace, vector<int> 
         }
     }
     return -1;
+}
+
+void save_pca_model(const char * pca_path, int data_dimensionality, int subspace_dimensionality, int subspace_num, const arma::vec & dataset_mean, const arma::mat & eigvec, const arma::vec & eigVal, const std::vector<int> & row_to_dim) {
+    FILE * fp = fopen(pca_path, "wb");
+    if (fp == NULL) {
+        cout << "Cannot open PCA model file for writing: " << pca_path << endl;
+        return;
+    }
+    int fd = data_dimensionality, sd = subspace_dimensionality, sn = subspace_num;
+    fwrite(&fd, sizeof(int), 1, fp);
+    fwrite(&sd, sizeof(int), 1, fp);
+    fwrite(&sn, sizeof(int), 1, fp);
+    fwrite(dataset_mean.memptr(), sizeof(double), (size_t)dataset_mean.n_elem, fp);
+    fwrite(eigvec.memptr(), sizeof(double), (size_t)eigvec.n_elem, fp);
+    fwrite(eigVal.memptr(), sizeof(double), (size_t)eigVal.n_elem, fp);
+    fwrite(row_to_dim.data(), sizeof(int), row_to_dim.size(), fp);
+    fclose(fp);
+    cout << "Saved PCA model to " << pca_path << endl;
+}
+
+bool load_pca_model(const char * pca_path, int data_dimensionality, int subspace_dimensionality, int subspace_num, arma::vec & dataset_mean, arma::mat & eigvec, arma::vec & eigVal, std::vector<int> & row_to_dim) {
+    FILE * fp = fopen(pca_path, "rb");
+    if (fp == NULL) {
+        return false;
+    }
+    int fd, sd, sn;
+    bool ok = (fread(&fd, sizeof(int), 1, fp) == 1 && fread(&sd, sizeof(int), 1, fp) == 1 && fread(&sn, sizeof(int), 1, fp) == 1 &&
+              fd == data_dimensionality && sd == subspace_dimensionality && sn == subspace_num);
+    if (!ok) {
+        fclose(fp);
+        return false;
+    }
+    dataset_mean.set_size(fd);
+    eigvec.set_size(fd, fd);
+    eigVal.set_size(fd);
+    row_to_dim.resize(sd * sn);
+    fread(dataset_mean.memptr(), sizeof(double), (size_t)fd, fp);
+    fread(eigvec.memptr(), sizeof(double), (size_t)(fd * fd), fp);
+    fread(eigVal.memptr(), sizeof(double), (size_t)fd, fp);
+    fread(row_to_dim.data(), sizeof(int), row_to_dim.size(), fp);
+    fclose(fp);
+    cout << "Loaded PCA model from " << pca_path << endl;
+    return true;
 }

@@ -5,6 +5,7 @@
 #include "preprocess.h"
 #include "evaluate.h"
 #include <mlpack/methods/pca/pca.hpp>
+#include <string>
 
 using namespace std;
 
@@ -30,7 +31,6 @@ int main (int argc, char **argv)
     static char * query_path;
     static char * groundtruth_path;
     static char * index_path;
-    static char * projected_query_path;
     
     static long int dataset_size = 1000000;
     static int query_size = 100;
@@ -67,7 +67,6 @@ int main (int argc, char **argv)
             {"kmeans-num-centroid", required_argument, 0, 'm'},
             {"kmeans-num-iters", required_argument, 0, 'n'},
             {"load-index", no_argument, 0, 'o'},
-            {"projected-query-path", required_argument, 0, 'p'},
             {NULL, 0, NULL, 0}
         };
 
@@ -113,9 +112,11 @@ int main (int argc, char **argv)
 
             case 'i':
             	subspace_dimensionality = atoi(optarg);
+                break;
 
             case 'j':
             	subspace_num = atoi(optarg);
+                break;
             
             case 'k':
                 candidate_ratio = atof(optarg);
@@ -137,10 +138,6 @@ int main (int argc, char **argv)
                 load_index = 1;
                 break;
 
-            case 'p':
-                projected_query_path = optarg;
-                break;
-
             default:
                 exit(-1);
                 break;
@@ -160,30 +157,31 @@ int main (int argc, char **argv)
     long int ** gt;
     load_groundtruth(gt, groundtruth_path, query_size, k_size);
 
-    arma::mat projectedData(subspace_dimensionality * subspace_num, dataset_size + query_size, arma::fill::zeros);
     vector<arma::mat> data_list;
 
+    // PCA model for query-time projection (filled when load_index==0, or loaded from file when load_index==1)
+    arma::vec dataset_mean;
+    arma::mat eigvec;
+    arma::vec eigVal;
+    vector<int> row_to_dim;
+    bool pca_model_ready = false;
+
     if (load_index == 0) {
-        // Prepare data for PCA
-        arma::mat dataset_armamat(data_dimensionality, dataset_size + query_size, arma::fill::zeros);
-        for (int i = 0; i < dataset_size; i++) {
+        // 1) Prepare data for PCA: dataset only (no query concatenation)
+        arma::mat dataset_armamat(data_dimensionality, dataset_size, arma::fill::zeros);
+        for (long int i = 0; i < dataset_size; i++) {
             for (int j = 0; j < data_dimensionality; j++) {
                 dataset_armamat(j, i) = dataset[i][j];
             }
         }
-        for (int i = dataset_size; i < dataset_size + query_size; i++) {
-            for (int j = 0; j < data_dimensionality; j++) {
-                dataset_armamat(j, i) = querypoints[i - dataset_size][j];
-            }
-        }
+        dataset_mean = arma::mean(dataset_armamat, 1);
 
-        // Perform PCA to project the data
-        arma::mat transformedData(data_dimensionality, dataset_size + query_size, arma::fill::zeros);
-        arma::vec eigVal;
-        arma::mat eigvec(data_dimensionality, data_dimensionality, arma::fill::zeros);
+        // 2) Perform PCA on dataset only
+        arma::mat transformedData(data_dimensionality, dataset_size, arma::fill::zeros);
+        eigVal.set_size(data_dimensionality);
+        eigvec.set_size(data_dimensionality, data_dimensionality);
         mlpack::pca::PCA pca;
         pca.Apply(dataset_armamat, transformedData, eigVal, eigvec);
-
         dataset_armamat.clear();
 
         // Scale the eigenvalues to avoid numerical issues
@@ -195,45 +193,44 @@ int main (int argc, char **argv)
         for (int i = 0; i < data_dimensionality - 1; i++) {
             eigVal[i] *= pow(10, power);
         }
-        
-        // Eigensystem allocation
+
+        // 3) projectedData: dataset columns only; build dimension-to-row mapping for query
+        arma::mat projectedData(subspace_dimensionality * subspace_num, dataset_size, arma::fill::zeros);
+        row_to_dim.resize(subspace_dimensionality * subspace_num);
         vector<double> eigval_product_subspace(subspace_num, 1.0);
         vector<int> eigval_number_subspace(subspace_num, 0);
 
         for (int i = 0; i < subspace_num; i++) {
-            projectedData.row(i * subspace_dimensionality) = transformedData.row(i);
+            int row = i * subspace_dimensionality;
+            projectedData.row(row) = transformedData.row(i);
+            row_to_dim[row] = i;
             eigval_product_subspace[i] *= eigVal[i];
             eigval_number_subspace[i]++;
         }
-        
         for (int i = subspace_num; i < subspace_dimensionality * subspace_num; i++) {
             int selected_subspace = eigval_subspace_select(eigval_product_subspace, eigval_number_subspace, subspace_num, subspace_dimensionality);
-            projectedData.row(selected_subspace * subspace_dimensionality + eigval_number_subspace[selected_subspace]) = transformedData.row(i);
+            int row = selected_subspace * subspace_dimensionality + eigval_number_subspace[selected_subspace];
+            projectedData.row(row) = transformedData.row(i);
+            row_to_dim[row] = i;
             eigval_product_subspace[selected_subspace] *= eigVal[i];
             eigval_number_subspace[selected_subspace]++;
         }
 
-        // Preprocess dataset to fit the data format required by mlpack
         transfer_data(projectedData, data_list, dataset_size, subspace_num, subspace_dimensionality);
-
         transformedData.clear();
+        projectedData.clear();
+        pca_model_ready = true;
     }
 
-    // Generate PCA query points
-    float ** projected_querypoints = new float * [query_size];
+    // Query points: always apply PCA transform (model from current run or loaded from file)
     if (load_index == 1) {
-        load_query(projected_querypoints, projected_query_path, query_size, subspace_dimensionality * subspace_num);
-    } else {
-        for (long i = 0; i < query_size; i++){
-            projected_querypoints[i] = new float[subspace_dimensionality * subspace_num];
-            for (int j = 0; j < subspace_dimensionality * subspace_num; j++) {
-                projected_querypoints[i][j] = projectedData(j, i + dataset_size);
-            }
+        string pca_path = string(index_path) + ".pca";
+        if (!load_pca_model(pca_path.c_str(), data_dimensionality, subspace_dimensionality, subspace_num, dataset_mean, eigvec, eigVal, row_to_dim)) {
+            cout << "PCA model file not found or dimension mismatch: " << pca_path << ". Cannot project query." << endl;
+            exit(-1);
         }
-        save_query(projected_querypoints, projected_query_path, query_size, subspace_dimensionality * subspace_num);
+        pca_model_ready = true;
     }
-
-    projectedData.clear();
     
     // Indexing phase
     size_t RSS_before_indexing = getCurrentRSS() / 1000000; 
@@ -252,6 +249,10 @@ int main (int argc, char **argv)
         gen_indexes(data_list, indexes, dataset_size, centroids_list, assignments_list, kmeans_dim, subspace_num, kmeans_num_centroid, kmeans_num_iters, index_time);
         // save index
         save_indexes(index_path, centroids_list, assignments_list, dataset_size, kmeans_dim, subspace_num, kmeans_num_centroid);
+        if (pca_model_ready) {
+            string pca_path = string(index_path) + ".pca";
+            save_pca_model(pca_path.c_str(), data_dimensionality, subspace_dimensionality, subspace_num, dataset_mean, eigvec, eigVal, row_to_dim);
+        }
     }
 
     delete []assignments_list;
@@ -268,7 +269,23 @@ int main (int argc, char **argv)
     for (int i = 0; i < query_size; i++) {
         queryknn_results[i] = new int[k_size];
     }
-    
+
+    float ** projected_querypoints = new float * [query_size];
+    if (pca_model_ready) {
+        int proj_dim = subspace_dimensionality * subspace_num;
+        for (long i = 0; i < query_size; i++) {
+            projected_querypoints[i] = new float[proj_dim];
+            arma::vec q_col(data_dimensionality);
+            for (int j = 0; j < data_dimensionality; j++) {
+                q_col(j) = querypoints[i][j];
+            }
+            q_col -= dataset_mean;
+            arma::vec q_trans = eigvec.t() * q_col;
+            for (int r = 0; r < proj_dim; r++) {
+                projected_querypoints[i][r] = (float)q_trans(row_to_dim[r]);
+            }
+        }
+    }
 
     int number_of_threads = get_nprocs_conf() / 2;
 

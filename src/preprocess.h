@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <vector>
 #include <armadillo>
 #include <getopt.h>
 
@@ -14,3 +15,7 @@ void save_query(float ** &querypoints, char * query_path, int query_size, int qu
 void transfer_data(arma::mat &dataset, vector<arma::mat> &data_list, long int dataset_size, int subspace_num, int subspace_dimensionality);
 
 int eigval_subspace_select(vector<double>& eigval_product_subspace, vector<int> eigval_number_subspace, int subspace_num, int subspace_dimensionality);
+
+void save_pca_model(const char * pca_path, int data_dimensionality, int subspace_dimensionality, int subspace_num, const arma::vec & dataset_mean, const arma::mat & eigvec, const arma::vec & eigVal, const std::vector<int> & row_to_dim);
+
+bool load_pca_model(const char * pca_path, int data_dimensionality, int subspace_dimensionality, int subspace_num, arma::vec & dataset_mean, arma::mat & eigvec, arma::vec & eigVal, std::vector<int> & row_to_dim);

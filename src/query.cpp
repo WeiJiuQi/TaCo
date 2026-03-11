@@ -7,30 +7,39 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
 
     vector<unsigned char> collision_count(dataset_size, 0);
     
+    // Reused buffers per query to avoid repeated allocation in subspace loop
+    vector<float> first_half_dists(kmeans_num_centroid);
+    vector<int> first_half_idx(kmeans_num_centroid);
+    vector<float> second_half_dists(kmeans_num_centroid);
+    vector<int> second_half_idx(kmeans_num_centroid);
+
+    // Reused temporary arrays for candidate counting (avoid new/delete per query)
+    int * collision_num_count = new int[subspace_num + 1]();
+    int ** local_collision_num_count = new int * [number_of_threads];
+    for (int j = 0; j < number_of_threads; j++) {
+        local_collision_num_count[j] = new int [subspace_num + 1]();
+    }
+
     for (int i = 0; i < query_size; i++) {
         gettimeofday(&start_query, NULL);
 
         for (int j = 0; j < subspace_num; j++) {
 
             // first half dist
-            vector<float> first_half_dists(kmeans_num_centroid);
             for (int z = 0; z < kmeans_num_centroid; z++) {
                 first_half_dists[z] = faiss::fvec_L2sqr_avx512(&rotated_querypoints[i][j * subspace_dimensionality], &centroids_list[j * 2 * kmeans_num_centroid * kmeans_dim + z * kmeans_dim], kmeans_dim);
             }
 
             // first half sort
-            vector<int> first_half_idx(kmeans_num_centroid);
             iota(first_half_idx.begin(), first_half_idx.end(), 0);
             sort(first_half_idx.begin(), first_half_idx.end(), [&first_half_dists](int i1, int i2) {return first_half_dists[i1] < first_half_dists[i2];});
 
             // second half dist
-            vector<float> second_half_dists(kmeans_num_centroid);
             for (int z = 0; z < kmeans_num_centroid; z++) {
                 second_half_dists[z] = faiss::fvec_L2sqr_avx512(&rotated_querypoints[i][j * subspace_dimensionality + kmeans_dim], &centroids_list[(j * 2 + 1) * kmeans_num_centroid * kmeans_dim + z * kmeans_dim], kmeans_dim);
             }
 
             // second half sort
-            vector<int> second_half_idx(kmeans_num_centroid);
             iota(second_half_idx.begin(), second_half_idx.end(), 0);
             sort(second_half_idx.begin(), second_half_idx.end(), [&second_half_dists](int i1, int i2) {return second_half_dists[i1] < second_half_dists[i2];});
 
@@ -49,11 +58,14 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
             }
         }
 
-        // obtain candidate points
-        int * collision_num_count = new int[subspace_num + 1]();
-        int ** local_collision_num_count = new int * [number_of_threads];
+        // obtain candidate points (reuse pre-allocated arrays)
+        for (int j = 0; j < subspace_num + 1; j++) {
+            collision_num_count[j] = 0;
+        }
         for (int j = 0; j < number_of_threads; j++) {
-            local_collision_num_count[j] = new int [subspace_num + 1]();
+            for (int z = 0; z < subspace_num + 1; z++) {
+                local_collision_num_count[j][z] = 0;
+            }
         }
 
         #pragma omp parallel for num_threads(number_of_threads)
@@ -67,10 +79,6 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
                 collision_num_count[j] += local_collision_num_count[z][j];
             }
         }
-        for (int j = 0; j < number_of_threads; j++) {
-            delete[] local_collision_num_count[j];
-        }
-        delete[] local_collision_num_count;
 
         // release the candidate number to include all points in last_collision_num, saving the time for checking points whose collision_num is last_collision_num
         int last_collision_num;
@@ -83,7 +91,6 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
                 break;
             }
         }
-        delete[] collision_num_count;
 
         vector<int> candidate_idx;
         vector<vector<int>> local_candidate_idx(number_of_threads);
@@ -107,6 +114,11 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
         //     }
         // }
 
+        size_t total_candidates = 0;
+        for (int j = 0; j < number_of_threads; j++) {
+            total_candidates += local_candidate_idx[j].size();
+        }
+        candidate_idx.reserve(total_candidates);
         for (int j = 0; j < number_of_threads; j++) {
             candidate_idx.insert(candidate_idx.end(), local_candidate_idx[j].begin(), local_candidate_idx[j].end());
         }
@@ -143,6 +155,12 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
 
         ++pd_query;
     }
+
+    for (int j = 0; j < number_of_threads; j++) {
+        delete[] local_collision_num_count[j];
+    }
+    delete[] local_collision_num_count;
+    delete[] collision_num_count;
 }
 
 

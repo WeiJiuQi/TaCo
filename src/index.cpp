@@ -45,12 +45,6 @@ void gen_indexes(std::vector<arma::mat> & data_list, IndexMap &indexes, long int
         mlpack::kmeans::KMeans<> kmeans_first_half(kmeans_num_iters);
         kmeans_first_half.Cluster(data_list[subspace_index * 2], kmeans_num_centroid, assignments_first_half, centroids_first_half);
 
-        for (int i = 0; i < kmeans_num_centroid; i++) {
-            for (int j = 0; j < kmeans_dim; j++) {
-                centroids_list[subspace_index * 2 * kmeans_num_centroid * kmeans_dim + i * kmeans_dim + j] = centroids_first_half(j, i);
-            }
-        }
-
         // IMI second half data clustering
         arma::Row<size_t> assignments_second_half;
         arma::mat centroids_second_half;
@@ -63,6 +57,12 @@ void gen_indexes(std::vector<arma::mat> & data_list, IndexMap &indexes, long int
         for (long int i = 0; i < dataset_size; i++) {
             assignments_list[subspace_index * 2 * dataset_size + i] = assignments_first_half(i);
             assignments_list[(subspace_index * 2 + 1) * dataset_size + i] = assignments_second_half(i);
+        }
+
+        for (int i = 0; i < kmeans_num_centroid; i++) {
+            for (int j = 0; j < kmeans_dim; j++) {
+                centroids_list[subspace_index * 2 * kmeans_num_centroid * kmeans_dim + i * kmeans_dim + j] = centroids_first_half(j, i);
+            }
         }
 
         for (int i = 0; i < kmeans_num_centroid; i++) {

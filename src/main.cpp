@@ -240,7 +240,7 @@ int main (int argc, char **argv)
     
     int * assignments_list = new int[dataset_size * subspace_num * 2];
     float * centroids_list = new float [kmeans_num_centroid * kmeans_dim * subspace_num * 2];
-    vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> indexes;
+    IndexMap indexes;
 
     if (load_index == 1) { // load index from index_path
         load_indexes(index_path, indexes, centroids_list, assignments_list, dataset_size, kmeans_dim, subspace_num, kmeans_num_centroid);
@@ -290,7 +290,14 @@ int main (int argc, char **argv)
 
     int number_of_threads = get_nprocs_conf() / 2;
 
-    ann_query(dataset, queryknn_results, dataset_size, data_dimensionality, query_size, k_size, querypoints, indexes, centroids_list, subspace_num, subspace_dimensionality, kmeans_num_centroid, kmeans_dim, collision_num, candidate_num, number_of_threads, query_time, projected_querypoints, gt);
+    AnnQueryParams qparams = {
+        dataset, queryknn_results, dataset_size, data_dimensionality,
+        query_size, k_size, querypoints, &indexes, centroids_list,
+        subspace_num, subspace_dimensionality, kmeans_num_centroid, kmeans_dim,
+        collision_num, candidate_num, number_of_threads,
+        projected_querypoints, gt
+    };
+    ann_query(qparams, query_time);
     
     if (load_index == 0) {
         cout << "The indexing time is: " << index_time / 1000.0 << "ms." << endl;

@@ -1,9 +1,32 @@
 #include "query.h"
 #include <cstring>
+#include <omp.h>
+#include <sys/time.h>
+#include "dist_calculation.h"
 
-void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_size, int data_dimensionality, int query_size, int k_size, float ** &querypoints, vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> &indexes, float * &centroids_list, int subspace_num, int subspace_dimensionality, int kmeans_num_centroid, int kmeans_dim, int collision_num, int candidate_num, int number_of_threads, long int &query_time, float ** &rotated_querypoints, long int ** &gt) {
+using namespace std;
+
+void ann_query(AnnQueryParams &params, long int &query_time) {
+    float ** &dataset = params.dataset;
+    int ** &queryknn_results = params.queryknn_results;
+    long int dataset_size = params.dataset_size;
+    int data_dimensionality = params.data_dimensionality;
+    int query_size = params.query_size;
+    int k_size = params.k_size;
+    float ** &querypoints = params.querypoints;
+    IndexMap &indexes = *params.indexes;
+    float * &centroids_list = params.centroids_list;
+    int subspace_num = params.subspace_num;
+    int subspace_dimensionality = params.subspace_dimensionality;
+    int kmeans_num_centroid = params.kmeans_num_centroid;
+    int kmeans_dim = params.kmeans_dim;
+    int collision_num = params.collision_num;
+    int candidate_num = params.candidate_num;
+    int number_of_threads = params.number_of_threads;
+    float ** &rotated_querypoints = params.rotated_querypoints;
+    long int ** &gt = params.gt;
+
     struct timeval start_query, end_query;
-    
     progress_display pd_query(query_size);
 
     vector<unsigned char> collision_count(dataset_size, 0);
@@ -55,10 +78,12 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
 
             // count collision, parallelization here is recommended for large datasets (greater than 10 million) rather than small datasets (less than 1 million)
             #pragma omp parallel for num_threads(number_of_threads)
-            for (int z = 0; z < retrieved_cell.size(); z++) {
-                auto iterator = indexes[j].find(retrieved_cell[z]);
-                for (int t = 0; t < iterator->second.size(); t++) {
-                    collision_count[iterator->second[t]]++;
+            for (size_t z = 0; z < retrieved_cell.size(); z++) {
+                auto it = indexes[j].find(retrieved_cell[z]);
+                if (it != indexes[j].end()) {
+                    for (size_t t = 0; t < it->second.size(); t++) {
+                        collision_count[it->second[t]]++;
+                    }
                 }
             }
         }
@@ -167,7 +192,7 @@ void ann_query(float ** &dataset, int ** &queryknn_results, long int dataset_siz
 }
 
 
-void dynamic_activate(vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> &indexes, vector<pair<int, int>> &retrieved_cell, vector<float> &first_half_dists, vector<int> &first_half_idx, vector<float> &second_half_dists, vector<int> &second_half_idx, int collision_num, int kmeans_num_centroid, int subspace_idx) {
+void dynamic_activate(IndexMap &indexes, vector<pair<int, int>> &retrieved_cell, vector<float> &first_half_dists, vector<int> &first_half_idx, vector<float> &second_half_dists, vector<int> &second_half_idx, int collision_num, int kmeans_num_centroid, int subspace_idx) {
     vector<pair<float, int>> activated_cell;
 
     int retrieved_num = 0;
@@ -198,7 +223,7 @@ void dynamic_activate(vector<unordered_map<pair<int, int>, vector<int>, hash_pai
     }
 }
 
-void scalable_dynamic_activate(vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> &indexes, vector<pair<int, int>> &retrieved_cell, vector<float> &first_half_dists, vector<int> &first_half_idx, vector<float> &second_half_dists, vector<int> &second_half_idx, int collision_num, int kmeans_num_centroid, int subspace_idx) {
+void scalable_dynamic_activate(IndexMap &indexes, vector<pair<int, int>> &retrieved_cell, vector<float> &first_half_dists, vector<int> &first_half_idx, vector<float> &second_half_dists, vector<int> &second_half_idx, int collision_num, int kmeans_num_centroid, int subspace_idx) {
     priority_queue<pair<float, int>, vector<pair<float, int>>, Compare> activated_cell;
     vector<int> activated_idx(kmeans_num_centroid, 0);
 

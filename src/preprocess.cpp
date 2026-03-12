@@ -5,63 +5,70 @@
 void load_data(float ** &dataset, char * dataset_path, long int dataset_size, int data_dimensionality) {
     cout << ">>> Loading dataset from: " << dataset_path << endl;
 
-    FILE * ifile_dataset;
-    ifile_dataset = fopen(dataset_path,"rb");
+    FILE * ifile_dataset = fopen(dataset_path, "rb");
     if (ifile_dataset == NULL) {
-        cout << "File " << dataset_path << "not found!" << endl;
+        cout << "File " << dataset_path << " not found!" << endl;
         exit(-1);
     }
 
     cout << "Cardinality of dataset is: " << dataset_size << endl;
-    int fread_return;
 
     dataset = new float*[dataset_size];
-    for (int i = 0; i < dataset_size; i++)
-    {
-        dataset[i] = new float[data_dimensionality];
-        fread_return = fread(dataset[i], sizeof(float), data_dimensionality, ifile_dataset);                
+    float * block = new float[static_cast<size_t>(dataset_size) * data_dimensionality];
+    size_t n = static_cast<size_t>(dataset_size) * data_dimensionality;
+    if (fread(block, sizeof(float), n, ifile_dataset) != n) {
+        cout << "Failed to read dataset." << endl;
+        fclose(ifile_dataset);
+        exit(-1);
     }
     fclose(ifile_dataset);
+
+    for (long int i = 0; i < dataset_size; i++)
+        dataset[i] = block + i * data_dimensionality;
 }
 
 void load_query(float ** &querypoints, char * query_path, int query_size, int data_dimensionality) {
     cout << ">>> Loading query from: " << query_path << endl;
-    FILE *ifile_query;
-    ifile_query = fopen(query_path,"rb");
+    FILE * ifile_query = fopen(query_path, "rb");
     if (ifile_query == NULL) {
-        cout << "File " << query_path << "not found!" << endl;
+        cout << "File " << query_path << " not found!" << endl;
         exit(-1);
     }
 
-    int fread_return;
-
     querypoints = new float*[query_size];
-    for (int i = 0; i < query_size; i++)
-    {
-        querypoints[i] = new float[data_dimensionality];
-        fread_return = fread(querypoints[i], sizeof(float), data_dimensionality, ifile_query);                
+    float * block = new float[static_cast<size_t>(query_size) * data_dimensionality];
+    size_t n = static_cast<size_t>(query_size) * data_dimensionality;
+    if (fread(block, sizeof(float), n, ifile_query) != n) {
+        cout << "Failed to read query." << endl;
+        fclose(ifile_query);
+        exit(-1);
     }
     fclose(ifile_query);
+
+    for (int i = 0; i < query_size; i++)
+        querypoints[i] = block + i * data_dimensionality;
 }
 
 void load_groundtruth(long int ** &gt, char * groundtruth_path, int query_size, int k_size) {
     cout << ">>> Loading groundtruth from: " << groundtruth_path << endl;
-    FILE *ifile_groundtruth;
-    ifile_groundtruth = fopen(groundtruth_path,"rb");
+    FILE * ifile_groundtruth = fopen(groundtruth_path, "rb");
     if (ifile_groundtruth == NULL) {
-        cout << "File " << groundtruth_path << "not found!" << endl;
+        cout << "File " << groundtruth_path << " not found!" << endl;
         exit(-1);
     }
 
-    int fread_return;
-
     gt = new long int*[query_size];
-    for (int i = 0; i < query_size; i++)
-    {
-        gt[i] = new long int[k_size];
-        fread_return = fread(gt[i], sizeof(long int), k_size, ifile_groundtruth);                
+    long int * block = new long int[static_cast<size_t>(query_size) * k_size];
+    size_t n = static_cast<size_t>(query_size) * k_size;
+    if (fread(block, sizeof(long int), n, ifile_groundtruth) != n) {
+        cout << "Failed to read groundtruth." << endl;
+        fclose(ifile_groundtruth);
+        exit(-1);
     }
     fclose(ifile_groundtruth);
+
+    for (int i = 0; i < query_size; i++)
+        gt[i] = block + i * k_size;
 }
 
 void save_query(float ** &querypoints, char * query_path, int query_size, int query_dimensionality) {

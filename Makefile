@@ -2,8 +2,7 @@ SETTING=-O3 -std=c++17 -larmadillo -lmlpack -lboost_serialization -fopenmp -fpic
 
 SOURCE=$(wildcard ./src/*.cpp)
 
-suco:$(SRCS)
-	rm -rf taco
+taco: $(SOURCE)
 	g++ $(SOURCE) -o taco $(SETTING)
 
 clean:

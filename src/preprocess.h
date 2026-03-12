@@ -6,8 +6,11 @@
 
 using namespace std;
 
+
 void load_data(float ** &dataset, char * dataset_path, long int dataset_size, int data_dimensionality);
+
 void load_query(float ** &querypoints, char * query_path, int query_size, int data_dimensionality);
+
 void load_groundtruth(long int ** &gt, char * groundtruth_path, int query_size, int k_size);
 
 void save_query(float ** &querypoints, char * query_path, int query_size, int query_dimensionality);

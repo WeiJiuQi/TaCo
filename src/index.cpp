@@ -1,6 +1,11 @@
 #include "index.h"
+#include <mlpack/methods/kmeans/kmeans.hpp>
+#include <omp.h>
+#include <sys/time.h>
 
-void load_indexes(char * index_path, vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> &indexes, float * centroids_list, int * assignments_list, long int dataset_size, int kmeans_dim, int subspace_num, int kmeans_num_centroid) {
+using namespace std;
+
+void load_indexes(char * index_path, IndexMap &indexes, float * centroids_list, int * assignments_list, long int dataset_size, int kmeans_dim, int subspace_num, int kmeans_num_centroid) {
     cout << ">>> Loading index from: " << index_path << endl;
 
     FILE *ifile_index;
@@ -29,7 +34,7 @@ void load_indexes(char * index_path, vector<unordered_map<pair<int, int>, vector
 }
 
 
-void gen_indexes(vector<arma::mat> data_list, vector<unordered_map<pair<int, int>, vector<int>, hash_pair>> &indexes, long int dataset_size, float * centroids_list, int * assignments_list, int kmeans_dim, int subspace_num, int kmeans_num_centroid, int kmeans_num_iters, long int &index_time) {
+void gen_indexes(std::vector<arma::mat> & data_list, IndexMap &indexes, long int dataset_size, float * centroids_list, int * assignments_list, int kmeans_dim, int subspace_num, int kmeans_num_centroid, int kmeans_num_iters, long int &index_time) {
     struct timeval start_index, end_index;
 
     for (int subspace_index = 0; subspace_index < subspace_num; subspace_index++) {

@@ -1,5 +1,7 @@
 #pragma once
 #include <iostream>
+#include <vector>
+#include <unordered_map>
 #include <sys/sysinfo.h>
 #include <mutex>
 #include <atomic>
@@ -34,6 +36,9 @@ struct hash_pair {
         return hash_val(p.first, p.second);
     }
 };
+
+using IndexMap = std::vector<std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair>>;
+
 static size_t getCurrentRSS() {
 #if defined(_WIN32)
     /* Windows -------------------------------------------------- */

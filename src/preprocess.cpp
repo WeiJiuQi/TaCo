@@ -162,10 +162,16 @@ bool load_pca_model(const char * pca_path, int data_dimensionality, int subspace
     eigvec.set_size(fd, fd);
     eigVal.set_size(fd);
     row_to_dim.resize(sd * sn);
-    fread(dataset_mean.memptr(), sizeof(double), (size_t)fd, fp);
-    fread(eigvec.memptr(), sizeof(double), (size_t)(fd * fd), fp);
-    fread(eigVal.memptr(), sizeof(double), (size_t)fd, fp);
-    fread(row_to_dim.data(), sizeof(int), row_to_dim.size(), fp);
+    size_t n_mean = static_cast<size_t>(fd);
+    size_t n_eigvec = static_cast<size_t>(fd) * static_cast<size_t>(fd);
+    size_t n_row = row_to_dim.size();
+    if (fread(dataset_mean.memptr(), sizeof(double), n_mean, fp) != n_mean ||
+        fread(eigvec.memptr(), sizeof(double), n_eigvec, fp) != n_eigvec ||
+        fread(eigVal.memptr(), sizeof(double), n_mean, fp) != n_mean ||
+        fread(row_to_dim.data(), sizeof(int), n_row, fp) != n_row) {
+        fclose(fp);
+        return false;
+    }
     fclose(fp);
     cout << "Loaded PCA model from " << pca_path << endl;
     return true;

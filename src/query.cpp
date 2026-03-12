@@ -1,8 +1,4 @@
 #include "query.h"
-#include <cstring>
-#include <omp.h>
-#include <sys/time.h>
-#include "dist_calculation.h"
 
 using namespace std;
 

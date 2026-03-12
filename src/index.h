@@ -1,7 +1,10 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <mlpack/methods/kmeans/kmeans.hpp>
 #include <armadillo>
+#include <omp.h>
+#include <sys/time.h>
 #include "utils.h"
 
 void load_indexes(char * index_path, IndexMap &indexes, float * centroids_list, int * assignments_list, long int dataset_size, int kmeans_dim, int subspace_num, int kmeans_num_centroid);

@@ -1,7 +1,4 @@
 #include "index.h"
-#include <mlpack/methods/kmeans/kmeans.hpp>
-#include <omp.h>
-#include <sys/time.h>
 
 using namespace std;
 

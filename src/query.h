@@ -1,6 +1,15 @@
 #pragma once
-#include <utility>
+#include <iostream>
 #include <vector>
+#include <utility>
+#include <mlpack/methods/kmeans/kmeans.hpp>
+#include <armadillo>
+#include <unordered_map>
+#include <omp.h>
+#include <sys/time.h>
+#include <cstring>
+
+#include "dist_calculation.h"
 #include "utils.h"
 
 struct Compare {
